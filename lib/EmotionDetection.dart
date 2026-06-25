@@ -1,6 +1,6 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:tflite_v2/tflite_v2.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 class EmotionDetection extends StatefulWidget {
   const EmotionDetection({super.key});
@@ -10,117 +10,106 @@ class EmotionDetection extends StatefulWidget {
 }
 
 class _EmotionDetectionState extends State<EmotionDetection> {
-  CameraImage? cameraImage;
-  CameraController? cameraController;
+  CameraController? controller;
 
-  String output = "Waiting...";
-  String rawOutput = "No data";
+  final FaceDetector faceDetector = FaceDetector(
+    options: FaceDetectorOptions(
+      performanceMode: FaceDetectorMode.fast,
+      enableContours: false,
+      enableLandmarks: false,
+    ),
+  );
 
-  bool isProcessing = false;
+  bool faceDetected = false;
+  bool isBusy = false;
 
   @override
   void initState() {
     super.initState();
-    loadModel();
-    loadCamera();
+    startCamera();
   }
 
-  @override
-  void dispose() {
-    cameraController?.dispose();
-    Tflite.close();
-    super.dispose();
-  }
-
-  Future<void> loadCamera() async {
+  Future<void> startCamera() async {
     final cameras = await availableCameras();
 
-    cameraController = CameraController(
+    controller = CameraController(
       cameras[1],
       ResolutionPreset.medium,
       enableAudio: false,
     );
 
-    await cameraController!.initialize();
+    await controller!.initialize();
 
     if (!mounted) return;
 
     setState(() {});
 
-    cameraController!.startImageStream((image) {
-      cameraImage = image;
-      runModel();
-    });
+    controller!.startImageStream(processCameraImage);
   }
 
-  Future<void> loadModel() async {
-    await Tflite.loadModel(
-      model: "assets/model.tflite",
-      labels: "assets/labels.txt",
-      isAsset: true,
-      numThreads: 1,
-      useGpuDelegate: false,
-    );
-  }
+  Future<void> processCameraImage(CameraImage image) async {
+    if (isBusy) return;
 
-  Future<void> runModel() async {
-    if (cameraImage == null || isProcessing) return;
-
-    isProcessing = true;
+    isBusy = true;
 
     try {
-      var recognitions = await Tflite.runModelOnFrame(
-        bytesList: cameraImage!.planes.map((plane) {
-          return plane.bytes;
-        }).toList(),
-        imageHeight: cameraImage!.height,
-        imageWidth: cameraImage!.width,
-        imageMean: 127.5,
-        imageStd: 127.5,
-        rotation: 90,
-        numResults: 7,
-        threshold: 0.05,
-        asynch: true,
+      final WriteBuffer allBytes = WriteBuffer();
+
+      for (final Plane plane in image.planes) {
+        allBytes.putUint8List(plane.bytes);
+      }
+
+      final bytes = allBytes.done().buffer.asUint8List();
+
+      final inputImage = InputImage.fromBytes(
+        bytes: bytes,
+        metadata: InputImageMetadata(
+          size: Size(
+            image.width.toDouble(),
+            image.height.toDouble(),
+          ),
+          rotation: InputImageRotation.rotation90deg,
+          format: InputImageFormat.nv21,
+          bytesPerRow: image.planes.first.bytesPerRow,
+        ),
       );
 
-      if (recognitions != null && recognitions.isNotEmpty) {
-        var best = recognitions.first;
+      final faces = await faceDetector.processImage(inputImage);
 
-        double confidence =
-            ((best["confidence"] ?? 0.0) * 100);
-
+      if (mounted) {
         setState(() {
-          output =
-              "${best["label"]} (${confidence.toStringAsFixed(1)}%)";
-
-          rawOutput = recognitions.toString();
+          faceDetected = faces.isNotEmpty;
         });
       }
     } catch (e) {
-      setState(() {
-        rawOutput = "Error: $e";
-      });
+      debugPrint(e.toString());
     }
 
-    isProcessing = false;
+    isBusy = false;
+  }
+
+  @override
+  void dispose() {
+    controller?.dispose();
+    faceDetector.close();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    bool cameraReady =
-        cameraController != null &&
-        cameraController!.value.isInitialized;
+    bool ready =
+        controller != null &&
+        controller!.value.isInitialized;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Emotion Detection"),
+        title: const Text("Face Reader"),
       ),
       body: Column(
         children: [
           Expanded(
-            flex: 5,
-            child: cameraReady
-                ? CameraPreview(cameraController!)
+            child: ready
+                ? CameraPreview(controller!)
                 : const Center(
                     child: CircularProgressIndicator(),
                   ),
@@ -128,48 +117,19 @@ class _EmotionDetectionState extends State<EmotionDetection> {
 
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            child: Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  output,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          const Padding(
-            padding: EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(20),
+            color: faceDetected
+                ? Colors.green
+                : Colors.red,
             child: Text(
-              "Raw Model Output",
-              style: TextStyle(
+              faceDetected
+                  ? "Face Detected ✅"
+                  : "No Face ❌",
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 24,
+                color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ),
-
-          Expanded(
-            flex: 3,
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.all(8),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                border: Border.all(),
-              ),
-              child: SingleChildScrollView(
-                child: Text(
-                  rawOutput,
-                  style: const TextStyle(fontSize: 14),
-                ),
               ),
             ),
           ),
