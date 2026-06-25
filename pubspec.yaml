@@ -5,34 +5,34 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-sdk: '>=3.3.0 <4.0.0'
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
-flutter:
-sdk: flutter
+  flutter:
+    sdk: flutter
 
-cupertino_icons: ^1.0.6
+  cupertino_icons: ^1.0.6
 
-firebase_core: ^2.24.2
-provider: ^6.1.2
-http: ^1.2.1
+  firebase_core: ^2.24.2
+  provider: ^6.1.2
+  http: ^1.2.1
 
-camera: ^0.10.5+9
+  camera: ^0.10.5+9
 
-google_mlkit_face_detection: ^0.10.0
+  google_mlkit_face_detection: ^0.10.0
 
-image: ^4.2.0
+  image: ^4.2.0
 
-shared_preferences: ^2.2.3
+  shared_preferences: ^2.2.3
 
 dev_dependencies:
-flutter_test:
-sdk: flutter
+  flutter_test:
+    sdk: flutter
 
-flutter_lints: ^3.0.2
+  flutter_lints: ^3.0.2
 
 flutter:
-uses-material-design: true
+  uses-material-design: true
 
-assets:
-- assets/
+  assets:
+    - assets/
