@@ -14,6 +14,9 @@ class _EmotionDetectionState extends State<EmotionDetection> {
   CameraController? cameraController;
 
   String output = "Waiting...";
+  String rawOutput = "No data";
+
+  bool isProcessing = false;
 
   @override
   void initState() {
@@ -60,8 +63,6 @@ class _EmotionDetectionState extends State<EmotionDetection> {
     );
   }
 
-  bool isProcessing = false;
-
   Future<void> runModel() async {
     if (cameraImage == null || isProcessing) return;
 
@@ -69,8 +70,9 @@ class _EmotionDetectionState extends State<EmotionDetection> {
 
     try {
       var recognitions = await Tflite.runModelOnFrame(
-        bytesList:
-            cameraImage!.planes.map((plane) => plane.bytes).toList(),
+        bytesList: cameraImage!.planes.map((plane) {
+          return plane.bytes;
+        }).toList(),
         imageHeight: cameraImage!.height,
         imageWidth: cameraImage!.width,
         imageMean: 127.5,
@@ -81,8 +83,6 @@ class _EmotionDetectionState extends State<EmotionDetection> {
         asynch: true,
       );
 
-      print(recognitions);
-
       if (recognitions != null && recognitions.isNotEmpty) {
         var best = recognitions.first;
 
@@ -91,11 +91,15 @@ class _EmotionDetectionState extends State<EmotionDetection> {
 
         setState(() {
           output =
-              "${best["label"]}\n${confidence.toStringAsFixed(1)}%";
+              "${best["label"]} (${confidence.toStringAsFixed(1)}%)";
+
+          rawOutput = recognitions.toString();
         });
       }
     } catch (e) {
-      print("Error: $e");
+      setState(() {
+        rawOutput = "Error: $e";
+      });
     }
 
     isProcessing = false;
@@ -114,7 +118,7 @@ class _EmotionDetectionState extends State<EmotionDetection> {
       body: Column(
         children: [
           Expanded(
-            flex: 7,
+            flex: 5,
             child: cameraReady
                 ? CameraPreview(cameraController!)
                 : const Center(
@@ -122,21 +126,49 @@ class _EmotionDetectionState extends State<EmotionDetection> {
                   ),
           ),
 
-          Expanded(
-            flex: 2,
-            child: Center(
-              child: Card(
-                elevation: 5,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(
-                    output,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            child: Card(
+              elevation: 4,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  output,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
                   ),
+                ),
+              ),
+            ),
+          ),
+
+          const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text(
+              "Raw Model Output",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+
+          Expanded(
+            flex: 3,
+            child: Container(
+              width: double.infinity,
+              margin: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                border: Border.all(),
+              ),
+              child: SingleChildScrollView(
+                child: Text(
+                  rawOutput,
+                  style: const TextStyle(fontSize: 14),
                 ),
               ),
             ),
