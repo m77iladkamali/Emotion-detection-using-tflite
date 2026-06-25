@@ -1,0 +1,52 @@
+name: Build APK
+
+on:
+workflow_dispatch:
+
+jobs:
+build:
+runs-on: ubuntu-latest
+
+```
+steps:
+  - name: Checkout Source
+    uses: actions/checkout@v4
+
+  - name: Setup Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: '17'
+
+  - name: Setup Flutter
+    uses: subosito/flutter-action@v2
+    with:
+      flutter-version: '3.13.9'
+
+  - name: Flutter Pub Get
+    run: flutter pub get
+
+  - name: Build APK
+    run: flutter build apk --release
+    continue-on-error: true
+
+  - name: Find APK Files
+    run: |
+      echo "===== CURRENT DIR ====="
+      pwd
+
+      echo "===== APK FILES ====="
+      find . -type f -name "*.apk"
+
+      echo "===== AAB FILES ====="
+      find . -type f -name "*.aab"
+
+      echo "===== BUILD CONTENT ====="
+      ls -R build || true
+
+  - name: Upload Build Folder
+    uses: actions/upload-artifact@v4
+    with:
+      name: build-folder
+      path: build
+```
