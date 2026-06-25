@@ -53,16 +53,8 @@ class _EmotionDetectionState extends State<EmotionDetection> {
     isBusy = true;
 
     try {
-      final WriteBuffer allBytes = WriteBuffer();
-
-      for (final Plane plane in image.planes) {
-        allBytes.putUint8List(plane.bytes);
-      }
-
-      final bytes = allBytes.done().buffer.asUint8List();
-
       final inputImage = InputImage.fromBytes(
-        bytes: bytes,
+        bytes: image.planes.first.bytes,
         metadata: InputImageMetadata(
           size: Size(
             image.width.toDouble(),
@@ -82,7 +74,7 @@ class _EmotionDetectionState extends State<EmotionDetection> {
         });
       }
     } catch (e) {
-      debugPrint(e.toString());
+      debugPrint("Face Detection Error: $e");
     }
 
     isBusy = false;
@@ -114,7 +106,6 @@ class _EmotionDetectionState extends State<EmotionDetection> {
                     child: CircularProgressIndicator(),
                   ),
           ),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
